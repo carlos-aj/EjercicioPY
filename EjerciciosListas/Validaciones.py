@@ -71,3 +71,4 @@ def leer_caracter_multiple(mensaje="Introduce un caracter:", error="No se ha int
         if caracter.lower() in caracteres_validos:
             return caracter.lower()
         print(error)
+
