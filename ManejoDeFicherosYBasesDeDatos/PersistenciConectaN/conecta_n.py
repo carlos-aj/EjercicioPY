@@ -34,6 +34,9 @@ class ConectaN:
             for _ in range(filas)
         ]
 
+        if not ConectaN.validar_modo_juego(modo_juego):
+            raise ValueError("Modo de juego no válido")
+
         self._cantidad_victoria = cantidad_victoria
         self._modo_juego = modo_juego
         self._jugador_1 = jugador_1
@@ -217,55 +220,14 @@ class ConectaN:
             return " O  "
         return "    "
     
-    def mostrar_tablero_columna(self, columna_ultima_fila):
-        """Método para mostrar el tablero resaltando la última columna jugada.
-        Params:
-            columna_ultima_fila (int): Índice de la última columna donde se colocó una ficha.
-        """
-        filas = len(self._tablero)
-        columnas = len(self._tablero[0])
-        
-        # Números de columnas
-        print("  ", end="")
-        for col in range(columnas):
-            print(f"{col + 1:3}", end="  ")
-        print()
-        
-        # Línea superior
-        print("┌" + "────┬" * (columnas - 1) + "────┐")
-        
-        # Filas del tablero (sin inversión - fila 0 arriba, fila 5 abajo)
-        for fila in range(filas):
-            print("│", end="")
-            for col in range(columnas):
-                contenido = self._obtener_contenido_casilla(self._tablero[fila][col])
-                
-                # Resaltar columna si es la última donde se colocó una ficha
-                if col == columna_ultima_fila:
-                    print(f"{self.YELLOW_BG}{contenido}{self.RESET}", end="")
-                else:
-                    print(contenido, end="")
-                    
-                # Separador vertical (excepto última columna)
-                if col < columnas - 1:
-                    print("│", end="")
-            print("│")
-            
-            # Separadores horizontales entre filas (excepto la última)
-            if fila < filas - 1:
-                print("├" + "────┼" * (columnas - 1) + "────┤")
-        
-        # Línea inferior
-        print("└" + "────┴" * (columnas - 1) + "────┘")
-    
     def colocar_ficha(self, ficha, columna):
-        """Método para colocar una ficha en una columna, retornando la fila donde se colocó.
+        """Método para colocar una ficha en una columna.
         Params:
             ficha (int): Valor de la ficha a colocar.
             columna (int): Índice de la columna donde colocar la ficha.
 
         Returns:
-            int: Índice de la fila donde se colocó la ficha, o False si la columna está llena.
+            bool: True si se colocó la ficha correctamente, False si la columna está llena.
         """
         if self.columna_llena(columna):
             return False
@@ -274,7 +236,7 @@ class ConectaN:
         for i in range(len(self._tablero)-1, -1, -1):
             if self._tablero[i][columna] == self.CASILLA_VACIA:
                 self._tablero[i][columna] = ficha
-                return i
+                return True
         return False
 
     def columna_llena(self, columna):
@@ -493,54 +455,6 @@ class ConectaN:
         
         return []
 
-    def marcar_victoria(self, columna, numero):
-        """Marca la línea ganadora en el tablero resaltándola.
-        Params:
-            columna (int): Columna donde se colocó la ficha.
-            numero (int): Valor de la ficha colocada.
-        """
-        filas = len(self._tablero)
-        columnas = len(self._tablero[0])
-        
-        posiciones_victoria = self.obtener_posiciones_victoria(columna, numero)
-        
-        GREEN_BG = '\033[42m'
-        
-        resultado = ""
-        
-        # Números de columnas
-        resultado += "  "
-        for col in range(columnas):
-            resultado += f"{col + 1:3}  "
-        resultado += "\n"
-        
-        # Línea superior
-        resultado += "┌" + "────┬" * (columnas - 1) + "────┐\n"
-        
-        # Filas del tablero (sin inversión - fila 0 arriba, fila 5 abajo)
-        for fila in range(filas):
-            resultado += "│"
-            for col in range(columnas):
-                contenido = self._obtener_contenido_casilla(self._tablero[fila][col])
-                
-                if (fila, col) in posiciones_victoria:
-                    resultado += f"{GREEN_BG}{contenido}{self.RESET}"
-                else:
-                    resultado += contenido
-                    
-                if col < columnas - 1:
-                    resultado += "│"
-            resultado += "│\n"
-            
-            # Separadores entre filas (excepto la última)
-            if fila < filas - 1:
-                resultado += "├" + "────┼" * (columnas - 1) + "────┤\n"
-        
-        # Línea inferior
-        resultado += "└" + "────┴" * (columnas - 1) + "────┘"
-        
-        print(resultado)
-
     def fichas_en_linea(self, ficha, columna):
         """Calcula el máximo número de fichas en línea que se formarían al colocar una ficha en la columna especificada.
         Params:
@@ -586,51 +500,172 @@ class ConectaN:
                     return True
         return False
 
-    def comprobar_fin_juego(self, columna, numero):
+    def hay_fin_juego(self, columna, numero):
         """Comprueba si el juego ha terminado por victoria o empate.
         Params:
             columna (int): Columna donde se colocó la ficha.
             numero (int): Valor de la ficha colocada.
         
         Returns:
-            bool: True si el juego ha terminado, False en caso contrario.
+            str: 'victoria' si hay ganador, 'empate' si no hay casillas libres, None si continúa.
         """
-        ganador = self.comprobar_linea(columna, numero)
-        casillas_libres = self.hay_casillas_libres()
-
-        if not casillas_libres:
-            print("FIN DE JUEGO")
-            print("No quedan casillas libres")
-            Juego.eliminar_archivo("partida_guardada.txt")
-            return True
-         
-        if ganador:
-            self.marcar_victoria(columna, numero)
-            print("FIN DE JUEGO")
-            Juego.eliminar_archivo("partida_guardada.txt")
-            return True
+        if self.comprobar_linea(columna, numero):
+            return 'victoria'
         
-        return False
-    
-    def guardar_tablero(self, nombre_archivo):
-        """Guarda el estado actual del tablero en un archivo de texto.
-        Params:
-            nombre_archivo (str): Nombre del archivo donde se guardará el tablero.
+        if not self.hay_casillas_libres():
+            return 'empate'
+        
+        return None
+
+    def obtener_jugada_maquina_nivel1(self):
+        """Método para obtener jugada aleatoria de la máquina para nivel 1.
+        Returns:
+            int: Índice de la columna seleccionada por la máquina, o None si no hay columnas disponibles.
         """
-        with open(nombre_archivo, 'r') as archivo:
-            lineas = archivo.readlines()
+        n_columnas = len(self._tablero[0])
+        columnas_disponibles = [i for i in range(n_columnas) if not self.columna_llena(i)]
+        if not columnas_disponibles:
+            return None
+        return random.choice(columnas_disponibles)
 
-        # Ahora el encabezado son las primeras 5 líneas: jugador1, jugador2, turno, cantidad_victoria, dificultad
-        encabezado = lineas[:5]
-        encabezado = [linea if linea.endswith('\n') else linea + '\n' for linea in encabezado]
+    def obtener_jugada_maquina_nivel2(self):
+        """Método para obtener jugada inteligente de la máquina para nivel 2.
+        Returns:
+            int: Índice de la columna seleccionada por la máquina, o None si no hay columnas disponibles.
+        """
+        n_columnas = len(self._tablero[0])
+        columnas_disponibles = [i for i in range(n_columnas) if not self.columna_llena(i)]
+        if not columnas_disponibles:
+            return None
+        
+        mejor_columna = None
+        
+        # 1. Intentar ganar
+        for col in columnas_disponibles:
+            fichas_maquina = self.fichas_en_linea(self.FICHA_CIRCULO, col)
+            if fichas_maquina >= self._cantidad_victoria:
+                mejor_columna = col
+                break
 
-        with open(nombre_archivo, 'w') as fichero:
-            fichero.writelines(encabezado)
-            for fila in self._tablero:
-                linea = ''.join(str(casilla) for casilla in fila)
-                fichero.write(linea + '\n')
+        # 2. Bloquear al jugador
+        if mejor_columna is None:
+            for col in columnas_disponibles:
+                fichas_jugador = self.fichas_en_linea(self.FICHA_EQUIS, col)
+                if fichas_jugador >= self._cantidad_victoria:
+                    mejor_columna = col
+                    break
+
+        # 3. Buscar la mejor jugada
+        if mejor_columna is None:
+            max_fichas = 0
+            for col in columnas_disponibles:
+                fichas_maquina = self.fichas_en_linea(self.FICHA_CIRCULO, col)
+                if fichas_maquina > max_fichas:
+                    max_fichas = fichas_maquina
+                    mejor_columna = col
+
+        # 4. Jugada aleatoria como último recurso
+        if mejor_columna is None:
+            mejor_columna = random.choice(columnas_disponibles)
+
+        return mejor_columna
 
 class Juego:
+    @staticmethod
+    def mostrar_tablero_columna(juego, columna_ultima_fila):
+        """Método para mostrar el tablero resaltando la última columna jugada.
+        Params:
+            juego (ConectaN): Instancia del juego.
+            columna_ultima_fila (int): Índice de la última columna donde se colocó una ficha.
+        """
+        filas = len(juego._tablero)
+        columnas = len(juego._tablero[0])
+        YELLOW_BG = '\033[43m'
+        RESET = '\033[0m'
+        
+        # Números de columnas
+        print("  ", end="")
+        for col in range(columnas):
+            print(f"{col + 1:3}", end="  ")
+        print()
+        
+        # Línea superior
+        print("┌" + "────┬" * (columnas - 1) + "────┐")
+        
+        # Filas del tablero (sin inversión - fila 0 arriba, fila 5 abajo)
+        for fila in range(filas):
+            print("│", end="")
+            for col in range(columnas):
+                contenido = juego._obtener_contenido_casilla(juego._tablero[fila][col])
+                
+                # Resaltar columna si es la última donde se colocó una ficha
+                if col == columna_ultima_fila:
+                    print(f"{YELLOW_BG}{contenido}{RESET}", end="")
+                else:
+                    print(contenido, end="")
+                    
+                # Separador vertical (excepto última columna)
+                if col < columnas - 1:
+                    print("│", end="")
+            print("│")
+            
+            # Separadores horizontales entre filas (excepto la última)
+            if fila < filas - 1:
+                print("├" + "────┼" * (columnas - 1) + "────┤")
+        
+        # Línea inferior
+        print("└" + "────┴" * (columnas - 1) + "────┘")
+
+    @staticmethod
+    def marcar_victoria(juego, columna, numero):
+        """Marca la línea ganadora en el tablero resaltándola.
+        Params:
+            juego (ConectaN): Instancia del juego.
+            columna (int): Columna donde se colocó la ficha.
+            numero (int): Valor de la ficha colocada.
+        """
+        filas = len(juego._tablero)
+        columnas = len(juego._tablero[0])
+        RESET = '\033[0m'
+        GREEN_BG = '\033[42m'
+        
+        posiciones_victoria = juego.obtener_posiciones_victoria(columna, numero)
+        
+        resultado = ""
+        
+        # Números de columnas
+        resultado += "  "
+        for col in range(columnas):
+            resultado += f"{col + 1:3}  "
+        resultado += "\n"
+        
+        # Línea superior
+        resultado += "┌" + "────┬" * (columnas - 1) + "────┐\n"
+        
+        # Filas del tablero (sin inversión - fila 0 arriba, fila 5 abajo)
+        for fila in range(filas):
+            resultado += "│"
+            for col in range(columnas):
+                contenido = juego._obtener_contenido_casilla(juego._tablero[fila][col])
+                
+                if (fila, col) in posiciones_victoria:
+                    resultado += f"{GREEN_BG}{contenido}{RESET}"
+                else:
+                    resultado += contenido
+                    
+                if col < columnas - 1:
+                    resultado += "│"
+            resultado += "│\n"
+            
+            # Separadores entre filas (excepto la última)
+            if fila < filas - 1:
+                resultado += "├" + "────┼" * (columnas - 1) + "────┤\n"
+        
+        # Línea inferior
+        resultado += "└" + "────┴" * (columnas - 1) + "────┘"
+        
+        print(resultado)
+
     @staticmethod
     def solicitar_tamano_tablero():
         """Método para solicitar el tamaño del tablero con validaciones."""
@@ -832,67 +867,6 @@ class Juego:
                 print("Error: Debes introducir un número válido o 'S' para salir.")
 
     @staticmethod
-    def obtener_jugada_maquina_nivel1(n_columnas, juego):
-        """Método para obtener jugada aleatoria de la máquina para nivel 1.
-        Params:
-            n_columnas (int): Número de columnas del tablero.
-            juego (ConectaN): Instancia del juego.
-        
-        Returns:
-            int: Índice de la columna seleccionada por la máquina.
-        """
-        columnas_disponibles = [i for i in range(n_columnas) if not juego.columna_llena(i)]
-        if not columnas_disponibles:
-            return None
-        return random.choice(columnas_disponibles)
-
-    @staticmethod
-    def obtener_jugada_maquina_nivel2(n_columnas, juego):
-        """Método para obtener jugada inteligente de la máquina para nivel 2.
-        Params:
-            n_columnas (int): Número de columnas del tablero.
-            juego (ConectaN): Instancia del juego.
-        
-        Returns:
-            int: Índice de la columna seleccionada por la máquina.
-        """
-        columnas_disponibles = [i for i in range(n_columnas) if not juego.columna_llena(i)]
-        if not columnas_disponibles:
-            return None
-        
-        mejor_columna = None
-        
-        # 1. Intentar ganar
-        for col in columnas_disponibles:
-            fichas_maquina = juego.fichas_en_linea(ConectaN.FICHA_CIRCULO, col)
-            if fichas_maquina >= juego.cantidad_victoria:
-                mejor_columna = col
-                break
-
-        # 2. Bloquear al jugador
-        if mejor_columna is None:
-            for col in columnas_disponibles:
-                fichas_jugador = juego.fichas_en_linea(ConectaN.FICHA_EQUIS, col)
-                if fichas_jugador >= juego.cantidad_victoria:
-                    mejor_columna = col
-                    break
-
-        # 3. Buscar la mejor jugada
-        if mejor_columna is None:
-            max_fichas = 0
-            for col in columnas_disponibles:
-                fichas_maquina = juego.fichas_en_linea(ConectaN.FICHA_CIRCULO, col)
-                if fichas_maquina > max_fichas:
-                    max_fichas = fichas_maquina
-                    mejor_columna = col
-
-        # 4. Jugada aleatoria como último recurso
-        if mejor_columna is None:
-            mejor_columna = random.choice(columnas_disponibles)
-
-        return mejor_columna
-
-    @staticmethod
     def juego_dos_jugadores(juego, jugador1, jugador2, archivo="partida_guardada.txt"):
         """Método para controlar el flujo del juego para dos jugadores.
         
@@ -915,19 +889,25 @@ class Juego:
             
             if columna is None:
                 Juego.guardar_turno(archivo, 1 if turno == ficha_jugador1 else 2)
-                juego.guardar_tablero(archivo)
+                Juego.guardar_tablero(juego._tablero, archivo)
                 print("Juego guardado. Saliendo...")
                 break
             
             juego.colocar_ficha(turno[0], columna)
-            juego.mostrar_tablero_columna(columna)
+            Juego.mostrar_tablero_columna(juego, columna)
             Juego.guardar_turno(archivo, 1 if turno == ficha_jugador1 else 2)
-            juego.guardar_tablero(archivo)
+            Juego.guardar_tablero(juego._tablero, archivo)
             
-            if juego.comprobar_fin_juego(columna, turno[0]):
-                if juego.comprobar_linea(columna, turno[0]):
+            resultado = juego.hay_fin_juego(columna, turno[0])
+            if resultado:
+                if resultado == 'victoria':
+                    Juego.marcar_victoria(juego, columna, turno[0])
+                    print("FIN DE JUEGO")
                     print(f"{turno[1]} HA GANADO")
-                    Juego.eliminar_archivo(archivo)
+                elif resultado == 'empate':
+                    print("FIN DE JUEGO")
+                    print("No quedan casillas libres")
+                Juego.eliminar_archivo(archivo)
                 break
 
             turno = ficha_jugador2 if turno == ficha_jugador1 else ficha_jugador1
@@ -954,9 +934,9 @@ class Juego:
                 time.sleep(2)
                 
                 if nivel == 1:
-                    columna = Juego.obtener_jugada_maquina_nivel1(n_columnas, juego)
+                    columna = juego.obtener_jugada_maquina_nivel1()
                 else: 
-                    columna = Juego.obtener_jugada_maquina_nivel2(n_columnas, juego)
+                    columna = juego.obtener_jugada_maquina_nivel2()
                 
                 if columna is None:
                     print("FIN DE JUEGO")
@@ -968,22 +948,49 @@ class Juego:
                 
                 if columna is None:
                     Juego.guardar_turno(archivo, 1 if turno == ficha_jugador1 else 2)
-                    juego.guardar_tablero(archivo)
+                    Juego.guardar_tablero(juego._tablero, archivo)
                     print("Juego guardado. Saliendo...")
                     break
 
             juego.colocar_ficha(turno[0], columna)
-            juego.mostrar_tablero_columna(columna)
+            Juego.mostrar_tablero_columna(juego, columna)
             Juego.guardar_turno(archivo, 1 if turno == ficha_jugador1 else 2)
-            juego.guardar_tablero(archivo)
-            if juego.comprobar_fin_juego(columna, turno[0]):
-                if juego.comprobar_linea(columna, turno[0]):
+            Juego.guardar_tablero(juego._tablero, archivo)
+            
+            resultado = juego.hay_fin_juego(columna, turno[0])
+            if resultado:
+                if resultado == 'victoria':
+                    Juego.marcar_victoria(juego, columna, turno[0])
+                    print("FIN DE JUEGO")
                     print(f"{turno[1]} HA GANADO")
-                    Juego.eliminar_archivo(archivo)
+                elif resultado == 'empate':
+                    print("FIN DE JUEGO")
+                    print("No quedan casillas libres")
+                Juego.eliminar_archivo(archivo)
                 break
 
             turno = ficha_maquina if turno == ficha_jugador1 else ficha_jugador1
-        
+    
+    @staticmethod
+    def guardar_tablero(tablero, nombre_archivo):
+        """Guarda el estado actual del tablero en un archivo de texto.
+        Params:
+            tablero (list): El tablero del juego.
+            nombre_archivo (str): Nombre del archivo donde se guardará el tablero.
+        """
+        with open(nombre_archivo, 'r') as archivo:
+            lineas = archivo.readlines()
+
+        # Ahora el encabezado son las primeras 5 líneas: jugador1, jugador2, turno, cantidad_victoria, dificultad
+        encabezado = lineas[:5]
+        encabezado = [linea if linea.endswith('\n') else linea + '\n' for linea in encabezado]
+
+        with open(nombre_archivo, 'w') as fichero:
+            fichero.writelines(encabezado)
+            for fila in tablero:
+                linea = ''.join(str(casilla) for casilla in fila)
+                fichero.write(linea + '\n')
+
     # Función principal del juego
     @staticmethod
     def main():
